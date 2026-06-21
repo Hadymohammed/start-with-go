@@ -3,15 +3,17 @@ package main
 import (
 	"database/sql"
 	"log"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+
+	"start-with-go/internal/api"
 	"start-with-go/internal/config"
 	"start-with-go/internal/db"
 	"start-with-go/internal/handler"
 	"start-with-go/internal/middleware"
 	"start-with-go/internal/repository"
-
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -40,16 +42,22 @@ func main() {
 
 	r := gin.Default()
 
-	api := r.Group("/api/v1")
-	api.Use(middleware.APIKeyAuth(cfg.APIKey))
-	{
-		notes := api.Group("/notes")
-		notes.GET("", noteHandler.List)
-		notes.POST("", noteHandler.Create)
-		notes.GET("/:id", noteHandler.Get)
-		notes.PUT("/:id", noteHandler.Update)
-		notes.DELETE("/:id", noteHandler.Delete)
+	handler.RegisterDocsRoutes(r)
+
+	authMiddleware := func(f api.StrictHandlerFunc, operationID string) api.StrictHandlerFunc {
+		return func(ctx *gin.Context, request any) (any, error) {
+			switch operationID {
+			case "NotesCreate", "NotesUpdate", "NotesDelete":
+				middleware.APIKeyAuth(cfg.APIKey)(ctx)
+				if ctx.IsAborted() {
+					return nil, nil
+				}
+			}
+			return f(ctx, request)
+		}
 	}
+
+	api.RegisterHandlers(r, api.NewStrictHandler(noteHandler, []api.StrictMiddlewareFunc{authMiddleware}))
 
 	log.Printf("server listening on :%s", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
