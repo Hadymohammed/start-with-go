@@ -6,6 +6,7 @@ import (
 	"start-with-go/internal/config"
 	"start-with-go/internal/db"
 	"start-with-go/internal/handler"
+	"start-with-go/internal/middleware"
 	"start-with-go/internal/repository"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,7 @@ func main() {
 	r := gin.Default()
 
 	api := r.Group("/api/v1")
-	api.Use()
+	api.Use(middleware.APIKeyAuth(cfg.APIKey))
 	{
 		notes := api.Group("/notes")
 		notes.GET("", noteHandler.List)
