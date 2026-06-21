@@ -1,15 +1,18 @@
-.PHONY: generate-sqlc migrate-up migrate-down swag run build
+.PHONY: generate-sqlc generate-api migrate-up migrate-down run build
 
 generate-sqlc:
 	go run github.com/sqlc-dev/sqlc/cmd/sqlc generate
 
+generate-api:
+	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+		--config oapi-codegen.yaml \
+		api/tsp-output/schema/openapi.yaml
+
 migrate-up:
-	export $(shell cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL up
+	export $$(cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL up
 
 migrate-down:
-	export $(shell cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL down
-swag:
-	swag init -g cmd/api/main.go -o docs
+	export $$(cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL down
 
 run:
 	go run ./cmd/api
