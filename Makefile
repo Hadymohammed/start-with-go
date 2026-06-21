@@ -4,11 +4,10 @@ generate-sqlc:
 	go run github.com/sqlc-dev/sqlc/cmd/sqlc generate
 
 migrate-up:
-	go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres "$(DATABASE_URL)" up
+	export $(shell cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL up
 
 migrate-down:
-	go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres "$(DATABASE_URL)" down
-
+	export $(shell cat .env | xargs) && go run github.com/pressly/goose/v3/cmd/goose -dir sql/migrations postgres $$DATABASE_URL down
 swag:
 	swag init -g cmd/api/main.go -o docs
 
