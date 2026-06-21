@@ -1,98 +1,88 @@
 package handler
 
 import (
-	"net/http"
-	"start-with-go/internal/repository"
-	"strconv"
+	"context"
 
-	"github.com/gin-gonic/gin"
+	"start-with-go/internal/api"
+	"start-with-go/internal/repository"
 )
 
 type NoteHandler struct {
 	repo *repository.NoteRepository
 }
 
-type NoteRequest struct {
-	Title   string `json:"title" binding:"required"`
-	Content string `json:"content" binding:"required"`
-}
-
 func NewNoteHandler(repo *repository.NoteRepository) *NoteHandler {
 	return &NoteHandler{repo: repo}
 }
 
-func (h *NoteHandler) List(c *gin.Context) {
-	notes, err := h.repo.GetAll(c.Request.Context())
+func (h *NoteHandler) NotesList(ctx context.Context, request api.NotesListRequestObject) (api.NotesListResponseObject, error) {
+	notes, err := h.repo.GetAll(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return api.NotesListdefaultJSONResponse{Body: api.ApiError{Error: err.Error()}, StatusCode: 500}, nil
 	}
-	c.JSON(http.StatusOK, notes)
+
+	response := make(api.NotesList200JSONResponse, len(notes))
+	for i, n := range notes {
+		response[i] = api.Note{
+			Id:        n.ID,
+			Title:     n.Title,
+			Content:   n.Content,
+			CreatedAt: n.CreatedAt,
+			UpdatedAt: n.UpdatedAt,
+		}
+	}
+	return response, nil
 }
 
-func (h *NoteHandler) Get(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+func (h *NoteHandler) NotesRead(ctx context.Context, request api.NotesReadRequestObject) (api.NotesReadResponseObject, error) {
+	note, err := h.repo.GetByID(ctx, request.Id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid note ID"})
-		return
+		return api.NotesReaddefaultJSONResponse{Body: api.ApiError{Error: err.Error()}, StatusCode: 404}, nil
 	}
-	note, err := h.repo.GetByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Note not found"})
-		return
-	}
-	c.JSON(http.StatusOK, note)
+
+	return api.NotesRead200JSONResponse{
+		Id:        note.ID,
+		Title:     note.Title,
+		Content:   note.Content,
+		CreatedAt: note.CreatedAt,
+		UpdatedAt: note.UpdatedAt,
+	}, nil
 }
 
-func (h *NoteHandler) Create(c *gin.Context) {
-	var req NoteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	note, err := h.repo.Create(c.Request.Context(), req.Title, req.Content)
+func (h *NoteHandler) NotesCreate(ctx context.Context, request api.NotesCreateRequestObject) (api.NotesCreateResponseObject, error) {
+	note, err := h.repo.Create(ctx, request.Body.Title, request.Body.Content)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return api.NotesCreatedefaultJSONResponse{Body: api.ApiError{Error: err.Error()}, StatusCode: 500}, nil
 	}
 
-	c.JSON(http.StatusCreated, note)
+	return api.NotesCreate200JSONResponse{
+		Id:        note.ID,
+		Title:     note.Title,
+		Content:   note.Content,
+		CreatedAt: note.CreatedAt,
+		UpdatedAt: note.UpdatedAt,
+	}, nil
 }
 
-func (h *NoteHandler) Update(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+func (h *NoteHandler) NotesUpdate(ctx context.Context, request api.NotesUpdateRequestObject) (api.NotesUpdateResponseObject, error) {
+	note, err := h.repo.Update(ctx, request.Id, request.Body.Title, request.Body.Content)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid note ID"})
-		return
+		return api.NotesUpdatedefaultJSONResponse{Body: api.ApiError{Error: err.Error()}, StatusCode: 500}, nil
 	}
 
-	var req NoteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	note, err := h.repo.Update(c.Request.Context(), id, req.Title, req.Content)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, note)
+	return api.NotesUpdate200JSONResponse{
+		Id:        note.ID,
+		Title:     note.Title,
+		Content:   note.Content,
+		CreatedAt: note.CreatedAt,
+		UpdatedAt: note.UpdatedAt,
+	}, nil
 }
 
-func (h *NoteHandler) Delete(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid note ID"})
-		return
+func (h *NoteHandler) NotesDelete(ctx context.Context, request api.NotesDeleteRequestObject) (api.NotesDeleteResponseObject, error) {
+	if err := h.repo.Delete(ctx, request.Id); err != nil {
+		return api.NotesDeletedefaultJSONResponse{Body: api.ApiError{Error: err.Error()}, StatusCode: 500}, nil
 	}
 
-	if err := h.repo.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
+	return api.NotesDelete204Response{}, nil
 }
